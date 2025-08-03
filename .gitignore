@@ -1,0 +1,14 @@
+# Dependencies
+/node_modules
+
+# Baileys session files
+/baileys_auth_info
+
+# Message mappings store
+/message-mappings.json
+
+# Log files
+*.log
+
+# Environment variables
+.env

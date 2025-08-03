@@ -1,0 +1,15 @@
+{
+  "name": "whatsapp-group-mirror-bot",
+  "version": "1.0.0",
+  "description": "A WhatsApp bot to mirror actions from a primary group to multiple secondary groups.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.2",
+    "pino": "^8.1.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
