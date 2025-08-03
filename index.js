@@ -1,9 +1,10 @@
 import { Boom } from '@hapi/boom';
-import makeWASocket, {
+import baileys, {
     useMultiFileAuthState,
     DisconnectReason,
     isJidGroup
 } from '@whiskeysockets/baileys';
+const { default: makeWASocket } = baileys;
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import {
