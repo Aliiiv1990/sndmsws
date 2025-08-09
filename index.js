@@ -1,11 +1,12 @@
 import { Boom } from '@hapi/boom';
-import baileys, {
+import baileys from '@whiskeysockets/baileys';
+const {
+    default: makeWASocket,
     makeInMemoryStore,
     useMultiFileAuthState,
     DisconnectReason,
     isJidGroup
-} from '@whiskeysockets/baileys';
-const { default: makeWASocket } = baileys;
+} = baileys;
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import {
