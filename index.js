@@ -1,12 +1,13 @@
 import { Boom } from '@hapi/boom';
-import baileys from '@whiskeysockets/baileys';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const {
     default: makeWASocket,
     makeInMemoryStore,
     useMultiFileAuthState,
     DisconnectReason,
     isJidGroup
-} = baileys;
+} = require('@whiskeysockets/baileys');
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import {
