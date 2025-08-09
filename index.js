@@ -1,5 +1,6 @@
 import { Boom } from '@hapi/boom';
 import baileys, {
+    makeInMemoryStore,
     useMultiFileAuthState,
     DisconnectReason,
     isJidGroup
@@ -20,10 +21,11 @@ import {
 } from './messageStore.js';
 
 const logger = pino({
-    level: DEBUG_MODE ? 'debug' : 'info'
+    level: 'silent'
 });
 
 async function connectToWhatsApp() {
+    let isSyncIntervalSet = false;
     // --- Authentication and State ---
     const {
         state,
@@ -31,22 +33,55 @@ async function connectToWhatsApp() {
     } = await useMultiFileAuthState('baileys_auth_info');
     loadMappings();
 
+    const store = makeInMemoryStore({ logger: logger.child({ level: 'silent', stream: 'store' }) });
+
     // --- Socket Creation ---
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: true,
         logger,
         getMessage: async (key) => {
-            // This is a placeholder. For a production system, you might want
-            // to implement a proper message store to improve reliability.
-            return {
-                conversation: 'hello'
-            };
+            // This is a placeholder. A full-fledged store implementation would
+            // fetch the message from a database here.
+            // Returning undefined signals that the message is not in our store.
+            return undefined;
         },
     });
 
+    store.bind(sock.ev);
+
     // --- Event Handlers ---
     sock.ev.on('creds.update', saveCreds);
+
+    const syncMissedMessages = async () => {
+        if (!store.messages || !store.messages[PRIMARY_GROUP_ID]) {
+            return; // Store not ready
+        }
+
+        const chatMessages = store.messages[PRIMARY_GROUP_ID].array;
+        if (!chatMessages || chatMessages.length === 0) {
+            return; // No messages in the group
+        }
+
+        chatMessages.sort((a, b) => (b.messageTimestamp || 0) - (a.messageTimestamp || 0));
+        const lastMessage = chatMessages[0];
+
+        if (lastMessage && lastMessage.key.fromMe) {
+            const mapping = getMapping(lastMessage.key);
+            if (!mapping) {
+                console.log(`[Sync] Detected a missed message: ${lastMessage.key.id}. Mirroring...`);
+                for (const secondaryJid of SECONDARY_GROUP_IDS) {
+                    try {
+                        const mirroredMsg = await sock.sendMessage(secondaryJid, { forward: lastMessage });
+                        addMapping(lastMessage.key, mirroredMsg);
+                        console.log(`[Sync] Message ${lastMessage.key.id} successfully forwarded to ${secondaryJid}`);
+                    } catch (err) {
+                        console.error(`[Sync] Failed to forward message to ${secondaryJid}:`, err);
+                    }
+                }
+            }
+        }
+    };
 
     sock.ev.on('connection.update', (update) => {
         const {
@@ -61,6 +96,7 @@ async function connectToWhatsApp() {
             });
         }
         if (connection === 'close') {
+            isSyncIntervalSet = false;
             const shouldReconnect = (lastDisconnect?.error instanceof Boom) ?
                 lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut :
                 true;
@@ -76,6 +112,11 @@ async function connectToWhatsApp() {
         } else if (connection === 'open') {
             console.log('Connection opened!');
             console.log(`Bot is ready. Mirroring from ${PRIMARY_GROUP_ID} to ${SECONDARY_GROUP_IDS.length} groups.`);
+            if (!isSyncIntervalSet) {
+                setInterval(syncMissedMessages, 60 * 1000); // Check every 1 minute
+                isSyncIntervalSet = true;
+                console.log('Message sync service started.');
+            }
         }
     });
 
