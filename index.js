@@ -2,7 +2,8 @@ import { Boom } from '@hapi/boom';
 import baileys, {
     useMultiFileAuthState,
     DisconnectReason,
-    isJidGroup
+    isJidGroup,
+    Browsers
 } from '@whiskeysockets/baileys';
 const { default: makeWASocket } = baileys;
 import pino from 'pino';
@@ -33,6 +34,7 @@ async function connectToWhatsApp() {
     // --- Socket Creation ---
     const sock = makeWASocket({
         auth: state,
+        browser: Browsers.macOS('Desktop'),
         logger,
         getMessage: async (key) => {
             // Returning undefined signals that the message is not in our store.
