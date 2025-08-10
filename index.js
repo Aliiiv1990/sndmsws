@@ -33,7 +33,6 @@ async function connectToWhatsApp() {
     // --- Socket Creation ---
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
         logger,
         getMessage: async (key) => {
             // Returning undefined signals that the message is not in our store.
@@ -57,17 +56,42 @@ async function connectToWhatsApp() {
             });
         }
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect?.error instanceof Boom) ?
-                lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut :
-                true;
-            console.log(
-                'Connection closed due to',
-                lastDisconnect?.error,
-                ', reconnecting',
-                shouldReconnect
-            );
+            const statusCode = (lastDisconnect.error instanceof Boom) ? lastDisconnect.error.output.statusCode : 500;
+            let reason = 'Unknown Reason';
+            let shouldReconnect = true;
+
+            switch (statusCode) {
+                case DisconnectReason.connectionClosed:
+                    reason = 'Connection Closed';
+                    break;
+                case DisconnectReason.connectionLost:
+                    reason = 'Connection Lost from Server';
+                    break;
+                case DisconnectReason.connectionReplaced:
+                    reason = 'Connection Replaced: Another session was opened elsewhere.';
+                    shouldReconnect = false;
+                    break;
+                case DisconnectReason.loggedOut:
+                    reason = 'Logged Out: You were logged out from the phone.';
+                    shouldReconnect = false;
+                    break;
+                case DisconnectReason.restartRequired:
+                    reason = 'Restart Required';
+                    break;
+                case DisconnectReason.timedOut:
+                    reason = 'Connection Timed Out';
+                    break;
+                default:
+                    reason = `Unknown DisconnectReason: ${statusCode}`;
+            }
+
+            console.log(`Connection closed. Reason: ${reason}.`);
+
             if (shouldReconnect) {
+                console.log('Attempting to reconnect...');
                 connectToWhatsApp();
+            } else {
+                console.log('Not reconnecting due to the reason above.');
             }
         } else if (connection === 'open') {
             console.log('Connection opened!');
